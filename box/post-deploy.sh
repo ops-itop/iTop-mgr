@@ -55,11 +55,12 @@ if [ ! -d /home/wwwroot/default ];then
 fi
 
 sed -i 's/ = apache/ = nginx/g' /etc/php-fpm.d/www.conf
+chgrp nginx /var/lib/php/session
 
 cat > /etc/nginx/php-pathinfo.conf << "EOF"
         location ~ [^/]\.php(/|$)
         {
-            fastcgi_pass  unix:/tmp/php-fpm.sock;
+            fastcgi_pass  127.0.0.1:9000;
             fastcgi_index index.php;
             include fastcgi.conf;
             fastcgi_split_path_info ^(.+?\.php)(/.*)$;
@@ -106,7 +107,7 @@ http {
     server {
         listen       80 default_server;
         listen       [::]:80 default_server;
-        server_name  _;
+        server_name  __SERVER_NAME__;
         root         /home/wwwroot/default;
         # Add index.php to the list if you are using PHP
         index index.html index.htm index.nginx-debian.html index.php;
@@ -137,3 +138,8 @@ http {
     }
 }
 EOF
+
+IP=`ifconfig eth1 |grep "inet "|awk '{print $2}'`
+sed -i "s/__SERVER_NAME__/$IP/g" /etc/nginx/nginx.conf
+
+systemctl restart nginx
