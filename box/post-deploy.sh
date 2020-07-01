@@ -36,23 +36,27 @@ yum install -y mysql-community-server mysql-shell mysql-router
 # 安装 Nginx 和 PHP
 yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
 yum-config-manager --enable remi-php73
-yum install -y nginx php php-fpm php-xml php-mysql php-soap php-ldap php-zip php-json php-mbstring php-gd graphviz rsync
+yum install -y nginx php php-fpm php-xml php-mysqlnd php-soap php-ldap php-zip php-json php-mbstring php-gd graphviz rsync
 
 systemctl enable nginx
 systemctl enable php-fpm
 systemctl enable mysqld
 
-wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
-mkdir -p /home/wwwroot/
-cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
-chown -R nginx:nginx default
+if [ ! -d /home/wwwroot/default ];then
+	wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
+	mkdir -p /home/wwwroot/
+	cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
+
+	# toolkit
+	wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
+	cd default && unzip /tmp/toolkit.zip && rm -f /tmp/toolkit.zip
+
+	chown -R nginx:nginx default
+fi
+
 sed -i 's/ = apache/ = nginx/g' /etc/php-fpm.d/www.conf
 
-# toolkit
-wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
-cd default && unzip /tmp/toolkit.zip
-
-cat > /etc/nginx/php-pathinfo.conf <<EOF
+cat > /etc/nginx/php-pathinfo.conf << "EOF"
         location ~ [^/]\.php(/|$)
         {
             fastcgi_pass  unix:/tmp/php-fpm.sock;
@@ -65,7 +69,7 @@ cat > /etc/nginx/php-pathinfo.conf <<EOF
         }
 EOF
 
-cat > /etc/nginx/nginx.conf <<EOF
+cat > /etc/nginx/nginx.conf << "EOF"
 user nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log;
@@ -115,7 +119,7 @@ http {
 		fastcgi_send_timeout 300s;
 		fastcgi_read_timeout 300s;
 
-		include enable-php-pathinfo.conf;
+		include php-pathinfo.conf;
 
         location / {
 			try_files $uri $uri/ =404;
