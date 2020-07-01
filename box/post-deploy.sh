@@ -42,6 +42,20 @@ systemctl enable nginx
 systemctl enable php-fpm
 systemctl enable mysqld
 
+systemctl stop mysqld
+rm -fr /var/lib/mysql
+mysqld --initialize-insecure --user=mysql
+systemctl start mysqld
+cat > /tmp/init.sql <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Root@123' PASSWORD EXPIRE NEVER;
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Root@123';
+create user root@'127.0.0.1' identified WITH mysql_native_password BY 'Root@123';
+grant all privileges on *.* to root@'127.0.0.1' with grant option;
+flush privileges;
+EOF
+
+mysql -uroot < /tmp/init.sql
+
 if [ ! -d /home/wwwroot/default ];then
     wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
     mkdir -p /home/wwwroot/
