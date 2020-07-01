@@ -143,3 +143,5 @@ IP=`ifconfig eth1 |grep "inet "|awk '{print $2}'`
 sed -i "s/__SERVER_NAME__/$IP/g" /etc/nginx/nginx.conf
 
 systemctl restart nginx
+
+rm -fr /var/cache/yum/*
