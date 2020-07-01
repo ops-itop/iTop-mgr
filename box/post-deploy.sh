@@ -43,15 +43,15 @@ systemctl enable php-fpm
 systemctl enable mysqld
 
 if [ ! -d /home/wwwroot/default ];then
-	wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
-	mkdir -p /home/wwwroot/
-	cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
+    wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
+    mkdir -p /home/wwwroot/
+    cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
 
-	# toolkit
-	wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
-	cd default && unzip /tmp/toolkit.zip && rm -f /tmp/toolkit.zip
+    # toolkit
+    wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
+    cd default && unzip /tmp/toolkit.zip && rm -f /tmp/toolkit.zip
 
-	chown -R nginx:nginx default
+    chown -R nginx:nginx default
 fi
 
 sed -i 's/ = apache/ = nginx/g' /etc/php-fpm.d/www.conf
@@ -62,10 +62,10 @@ cat > /etc/nginx/php-pathinfo.conf << "EOF"
             fastcgi_pass  unix:/tmp/php-fpm.sock;
             fastcgi_index index.php;
             include fastcgi.conf;
-			fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-			set $path_info $fastcgi_path_info;
-			fastcgi_param PATH_INFO       $path_info;
-			try_files $fastcgi_script_name =404;			
+            fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+            set $path_info $fastcgi_path_info;
+            fastcgi_param PATH_INFO       $path_info;
+            try_files $fastcgi_script_name =404;            
         }
 EOF
 
@@ -108,21 +108,23 @@ http {
         listen       [::]:80 default_server;
         server_name  _;
         root         /home/wwwroot/default;
-
+        # Add index.php to the list if you are using PHP
+        index index.html index.htm index.nginx-debian.html index.php;
+        
         # Load configuration files for the default server block.
         include /etc/nginx/default.d/*.conf;
 
-		access_log /var/log/nginx/default_access.log;
-		error_log /var/log/nginx/default_error.log;
+        access_log /var/log/nginx/default_access.log;
+        error_log /var/log/nginx/default_error.log;
 
-		fastcgi_connect_timeout 300s;
-		fastcgi_send_timeout 300s;
-		fastcgi_read_timeout 300s;
+        fastcgi_connect_timeout 300s;
+        fastcgi_send_timeout 300s;
+        fastcgi_read_timeout 300s;
 
-		include php-pathinfo.conf;
+        include php-pathinfo.conf;
 
         location / {
-			try_files $uri $uri/ =404;
+            try_files $uri $uri/ =404;
         }
 
         error_page 404 /404.html;
