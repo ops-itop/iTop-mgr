@@ -167,7 +167,7 @@ address = 192.168.10.101
 	readonly = true
 	path = $WEBROOT
 	comment = itop sync
-	exclude = data/cache-production/* data/transactions/*
+	exclude = data/cache-production/* data/transactions/* log/*
 EOF
 	systemctl enable rsyncd
 	systemctl restart rsyncd
