@@ -207,4 +207,5 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	chown -R nginx:nginx conf
 	chown -R nginx:nginx env-production
 	chown -R nginx:nginx data
+	chown -R nginx:nginx log
 fi
