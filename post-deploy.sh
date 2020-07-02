@@ -196,3 +196,12 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	chown -R nginx:nginx data
 	chown -R nginx:nginx log
 fi
+
+# cron(only one instance)
+if [ "$ID"x == "10101"x ];then
+	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php /home/wwwroot/default/webservices/cron.php --param_file=/etc/itop-cron.params >>/var/log/itop.log 2>&1" >> /etc/crontab
+fi
+echo > /etc/itop-cron.params <<EOF
+auth_user=admin
+auth_pwd=admin
+EOF
