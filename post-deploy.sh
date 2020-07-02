@@ -145,3 +145,53 @@ EOF
 
 # run on other two node
 [ "$ID"x == "10101"x ] || mysql -uroot -p$MYSQL_ROOT < /tmp/join.sql
+
+# fix nginx server_name
+sed -i "s/__SERVER_NAME__/$MYIP/g" /etc/nginx/nginx.conf
+# fix app_root_url
+PHP_CONF="/etc/php-fpm.d/www.conf"
+grep -q "ITOP_URL" $PHP_CONF || echo "env[ITOP_URL]=http://$MYIP/" >> $PHP_CONF
+
+# ensure web dir permission
+chown -R nginx:nginx /home/wwwroot/default
+
+# rsync itop dir. base 192.168.10.101
+if [ "$ID"x == "10101"x ];then
+	cat > /etc/rsyncd.conf <<EOF
+uid = nginx
+gid = nginx
+hosts allow = 192.168.10.102 192.168.10.103
+address = 192.168.10.101
+[itop]
+	readonly = true
+	path = /home/wwwroot/default
+	comment = itop sync
+	exclude = data/cache-production/* data/transactions/*
+EOF
+	systemctl enable rsyncd
+	systemctl restart rsyncd
+else
+	grep -q "rsync.*itop" /etc/crontab || echo "* * * * * root rsync -avzP 192.168.10.101::itop /home/wwwroot/default &>/tmp/itop-sync.log" >> /etc/crontab
+fi
+
+# php.ini
+PHP_INI=/etc/php.ini
+sed -i -r 's/^display_errors =.*/display_errors = On/g' $PHP_INI
+sed -i -r 's/^;error_log =.*/error_log = \/tmp\/php_errors.log/g' $PHP_INI
+
+systemctl restart nginx
+systemctl restart php-fpm
+
+
+# usefull script
+cat > /root/run.sh <<"EOF"
+#!/bin/bash
+
+function runAll() {
+	for id in `seq 1 3`;do
+		mysql -uroot -proot -e "$1"
+	done
+}
+
+runAll "$1"
+EOF

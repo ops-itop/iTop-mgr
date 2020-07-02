@@ -50,6 +50,7 @@ if [ ! -d /home/wwwroot/default ];then
     wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
     cd default && unzip /tmp/toolkit.zip && rm -f /tmp/toolkit.zip
 
+    cd ../
     chown -R nginx:nginx default
 fi
 
@@ -137,9 +138,6 @@ http {
     }
 }
 EOF
-
-IP=`ifconfig eth1 |grep "inet "|awk '{print $2}'`
-sed -i "s/__SERVER_NAME__/$IP/g" /etc/nginx/nginx.conf
 
 systemctl restart nginx
 
