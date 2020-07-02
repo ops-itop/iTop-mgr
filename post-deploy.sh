@@ -199,8 +199,12 @@ EOF
 
 # auto install(only install one instance: 192.168.10.101)
 ITOP_CONF_FILE="$WEBROOT/conf/production/config-itop.php"
-if [ ! -f $ITOP_CONF_FILE && "$ID"x == "10101"x ];then
+if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	cd $WEBROOT/toolkit
 	php auto_install.php
-	sed -i 's/__ITOP_URL__/getenv("ITOP_URL")/g' $ITOP_CONF_FILE
+	sed -i "s/'__ITOP_URL__'/getenv('ITOP_URL')/g" $ITOP_CONF_FILE
+	cd ../
+	chown -R nginx:nginx conf
+	chown -R nginx:nginx env-production
+	chown -R nginx:nginx data
 fi
