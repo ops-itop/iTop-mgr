@@ -61,5 +61,6 @@ cp -ru /vagrant/toolkit-2.7 $WEBROOT/toolkit
 cp -u /vagrant/auto_install/* $WEBROOT/toolkit
 cp -u /vagrant/tools/* /root
 
+chmod +x /root/run.sh
 chown -R nginx:nginx $WEBROOT
 rm -fr /var/cache/yum/*
