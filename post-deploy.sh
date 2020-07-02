@@ -182,6 +182,7 @@ sed -i -r 's/^;error_log =.*/error_log = \/tmp\/php_errors.log/g' $PHP_INI
 
 systemctl restart nginx
 systemctl restart php-fpm
+systemctl restart ntpd
 
 
 # usefull script
