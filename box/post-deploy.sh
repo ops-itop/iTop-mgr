@@ -50,20 +50,15 @@ if [ ! -d $WEBROOT ];then
     wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
     mkdir -p /home/wwwroot/
     cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
-
-    # toolkit
-    wget http://dev.tecbbs.com/iTopDataModelToolkit-2.7.zip -O /tmp/toolkit.zip
-    cd default && unzip /tmp/toolkit.zip && rm -f /tmp/toolkit.zip
-
-    cd ../
-    chown -R nginx:nginx default
 fi
 
 sed -i 's/ = apache/ = nginx/g' /etc/php-fpm.d/www.conf
 chgrp nginx /var/lib/php/session
 
-cp /vagrant/conf/php-pathinfo.conf /etc/nginx
-cp /vagrant/conf/nginx.conf /etc/nginx
-cp /vagrant/auto_install/* $WEBROOT/toolkit
+cp -u /vagrant/conf/php-pathinfo.conf /etc/nginx
+cp -u /vagrant/conf/nginx.conf /etc/nginx
+cp -ru /vagrant/toolkit-2.7 $WEBROOT/toolkit
+cp -u /vagrant/auto_install/* $WEBROOT/toolkit
 
+chown -R nginx:nginx $WEBROOT
 rm -fr /var/cache/yum/*
