@@ -59,6 +59,7 @@ cp -u /vagrant/conf/php-pathinfo.conf /etc/nginx
 cp -u /vagrant/conf/nginx.conf /etc/nginx
 cp -ru /vagrant/toolkit-2.7 $WEBROOT/toolkit
 cp -u /vagrant/auto_install/* $WEBROOT/toolkit
+cp -u /vagrant/tools/* /root
 
 chown -R nginx:nginx $WEBROOT
 rm -fr /var/cache/yum/*

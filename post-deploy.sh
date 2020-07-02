@@ -184,20 +184,6 @@ systemctl restart nginx
 systemctl restart php-fpm
 systemctl restart ntpd
 
-
-# usefull script
-cat > /root/run.sh <<"EOF"
-#!/bin/bash
-
-function runAll() {
-	for id in `seq 1 3`;do
-		mysql -uroot -proot -e "$1"
-	done
-}
-
-runAll "$1"
-EOF
-
 # auto install(only install one instance: 192.168.10.101)
 ITOP_CONF_FILE="$WEBROOT/conf/production/config-itop.php"
 if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
