@@ -199,7 +199,9 @@ fi
 
 # cron(only one instance)
 if [ "$ID"x == "10101"x ];then
-	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php /home/wwwroot/default/webservices/cron.php --param_file=/etc/itop-cron.params >>/var/log/itop.log 2>&1" >> /etc/crontab
+	mkdir /var/log/itop
+	chown nginx:nginx /var/log/itop
+	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php /home/wwwroot/default/webservices/cron.php --param_file=/etc/itop-cron.params >>/var/log/itop/cron.log 2>&1" >> /etc/crontab
 fi
 echo > /etc/itop-cron.params <<EOF
 auth_user=admin
