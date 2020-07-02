@@ -183,6 +183,7 @@ sed -i -r 's/^;error_log =.*/error_log = \/tmp\/php_errors.log/g' $PHP_INI
 systemctl restart nginx
 systemctl restart php-fpm
 systemctl restart ntpd
+systemctl restart mysqld
 
 # auto install(only install one instance: 192.168.10.101)
 ITOP_CONF_FILE="$WEBROOT/conf/production/config-itop.php"
