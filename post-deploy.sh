@@ -25,8 +25,8 @@ if [ ! -f $LOCK ];then
 	cat > /tmp/init.sql <<EOF
 ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT' PASSWORD EXPIRE NEVER;
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT';
-create user root@'127.0.0.1' identified WITH mysql_native_password BY '$MYSQL_ROOT';
-grant all privileges on *.* to root@'127.0.0.1' with grant option;
+create user root@'%' identified WITH mysql_native_password BY '$MYSQL_ROOT';
+grant all privileges on *.* to root@'%' with grant option;
 flush privileges;
 EOF
 	mysql -uroot < /tmp/init.sql
