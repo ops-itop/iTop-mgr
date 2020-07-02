@@ -1,7 +1,12 @@
 #!/bin/bash
+SHARE_DIR=/vagrant
+WEBROOT="/home/wwwroot/default"
+
 mv /etc/yum.repos.d/* /tmp
 curl -s http://mirrors.aliyun.com/repo/Centos-7.repo -o /etc/yum.repos.d/CentOS-Base.repo
 curl -s http://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel.repo
+
+sed -i '/aliyuncs.com/d' /etc/yum.repos.d/*.repo
 
 # 安装 常用/必要 软件
 yum install -y wget vim yum-plugin-priorities ntp unzip
@@ -41,7 +46,7 @@ yum install -y nginx php php-fpm php-xml php-mysqlnd php-soap php-ldap php-zip p
 systemctl enable nginx
 systemctl enable php-fpm
 
-if [ ! -d /home/wwwroot/default ];then
+if [ ! -d $WEBROOT ];then
     wget https://sourceforge.net/projects/itop/files/latest/download -O /tmp/itop.zip
     mkdir -p /home/wwwroot/
     cd /home/wwwroot/ && unzip /tmp/itop.zip && rm -f /tmp/itop.zip && mv web default
@@ -57,88 +62,8 @@ fi
 sed -i 's/ = apache/ = nginx/g' /etc/php-fpm.d/www.conf
 chgrp nginx /var/lib/php/session
 
-cat > /etc/nginx/php-pathinfo.conf << "EOF"
-        location ~ [^/]\.php(/|$)
-        {
-            fastcgi_pass  127.0.0.1:9000;
-            fastcgi_index index.php;
-            include fastcgi.conf;
-            fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-            set $path_info $fastcgi_path_info;
-            fastcgi_param PATH_INFO       $path_info;
-            try_files $fastcgi_script_name =404;            
-        }
-EOF
-
-cat > /etc/nginx/nginx.conf << "EOF"
-user nginx;
-worker_processes auto;
-error_log /var/log/nginx/error.log;
-pid /run/nginx.pid;
-
-# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
-include /usr/share/nginx/modules/*.conf;
-
-events {
-    worker_connections 1024;
-}
-
-http {
-    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
-
-    access_log  /var/log/nginx/access.log  main;
-
-    sendfile            on;
-    tcp_nopush          on;
-    tcp_nodelay         on;
-    keepalive_timeout   65;
-    types_hash_max_size 2048;
-
-    include             /etc/nginx/mime.types;
-    default_type        application/octet-stream;
-
-    # Load modular configuration files from the /etc/nginx/conf.d directory.
-    # See http://nginx.org/en/docs/ngx_core_module.html#include
-    # for more information.
-    include /etc/nginx/conf.d/*.conf;
-
-    server {
-        listen       80 default_server;
-        listen       [::]:80 default_server;
-        server_name  __SERVER_NAME__;
-        root         /home/wwwroot/default;
-        # Add index.php to the list if you are using PHP
-        index index.html index.htm index.nginx-debian.html index.php;
-        
-        # Load configuration files for the default server block.
-        include /etc/nginx/default.d/*.conf;
-
-        access_log /var/log/nginx/default_access.log;
-        error_log /var/log/nginx/default_error.log;
-
-        fastcgi_connect_timeout 300s;
-        fastcgi_send_timeout 300s;
-        fastcgi_read_timeout 300s;
-
-        include php-pathinfo.conf;
-
-        location / {
-            try_files $uri $uri/ =404;
-        }
-
-        error_page 404 /404.html;
-            location = /40x.html {
-        }
-
-        error_page 500 502 503 504 /50x.html;
-            location = /50x.html {
-        }
-    }
-}
-EOF
-
-systemctl restart nginx
+cp /vagrant/conf/php-pathinfo.conf /etc/nginx
+cp /vagrant/conf/nginx.conf /etc/nginx
+cp /vagrant/auto_install/* $WEBROOT/toolkit
 
 rm -fr /var/cache/yum/*

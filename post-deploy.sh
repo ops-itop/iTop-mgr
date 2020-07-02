@@ -8,6 +8,7 @@ ID=`echo $MYIP |awk -F'.' '{printf "%s%s", $3,$4}'`
 CLUSTER_NAME="itop-mgr"
 MYSQL_ROOT="root"
 LOCK="/etc/mysql_init.lock"
+WEBROOT="/home/wwwroot/default"
 
 systemctl enable mysqld
 
@@ -153,7 +154,7 @@ PHP_CONF="/etc/php-fpm.d/www.conf"
 grep -q "ITOP_URL" $PHP_CONF || echo "env[ITOP_URL]=http://$MYIP/" >> $PHP_CONF
 
 # ensure web dir permission
-chown -R nginx:nginx /home/wwwroot/default
+chown -R nginx:nginx $WEBROOT
 
 # rsync itop dir. base 192.168.10.101
 if [ "$ID"x == "10101"x ];then
@@ -164,14 +165,14 @@ hosts allow = 192.168.10.102 192.168.10.103
 address = 192.168.10.101
 [itop]
 	readonly = true
-	path = /home/wwwroot/default
+	path = $WEBROOT
 	comment = itop sync
 	exclude = data/cache-production/* data/transactions/*
 EOF
 	systemctl enable rsyncd
 	systemctl restart rsyncd
 else
-	grep -q "rsync.*itop" /etc/crontab || echo "* * * * * root rsync -avzP 192.168.10.101::itop /home/wwwroot/default &>/tmp/itop-sync.log" >> /etc/crontab
+	grep -q "rsync.*itop" /etc/crontab || echo "* * * * * root rsync -avzP 192.168.10.101::itop $WEBROOT &>/tmp/itop-sync.log" >> /etc/crontab
 fi
 
 # php.ini
@@ -195,3 +196,11 @@ function runAll() {
 
 runAll "$1"
 EOF
+
+# auto install(only install one instance: 192.168.10.101)
+ITOP_CONF_FILE="$WEBROOT/conf/production/config-itop.php"
+if [ ! -f $ITOP_CONF_FILE && "$ID"x == "10101"x ];then
+	cd $WEBROOT/toolkit
+	php auto_install.php
+	sed -i 's/__ITOP_URL__/getenv("ITOP_URL")/g' $ITOP_CONF_FILE
+fi

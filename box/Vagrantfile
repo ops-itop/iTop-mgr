@@ -8,7 +8,7 @@ BOX='centos/7'
       node.vm.box = BOX
       node.vm.network :private_network, ip: "192.168.10.100"
       node.vm.hostname = "itop-mgr-base"
-      node.vm.synced_folder ".", "/vagrant", disabled: true
+      node.vm.synced_folder ".", "/vagrant", create: true
       if Vagrant.has_plugin?("vagrant-vbguest")
         node.vbguest.auto_update = false
       end      
