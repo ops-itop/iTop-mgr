@@ -10,7 +10,7 @@ curl -s http://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel.repo
 sed -i '/aliyuncs.com/d' /etc/yum.repos.d/*.repo
 
 # 安装 常用/必要 软件
-yum install -y wget vim yum-plugin-priorities ntp unzip
+yum install -y wget vim yum-plugin-priorities ntp unzip patch
 
 # 时区
 rm -rf /etc/localtime
