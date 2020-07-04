@@ -1,0 +1,27 @@
+diff --git a/core/cmdbsource.class.inc.php b/tmp/cmdbsource.class.inc.php
+index 632e9ca..7245c68 100644
+--- a/core/cmdbsource.class.inc.php
++++ b/tmp/cmdbsource.class.inc.php
+@@ -594,7 +594,7 @@ class CMDBSource
+ 	 */
+ 	private static function RemoveSurroundingQuotes($sValue)
+ 	{
+-		if (utils::StartsWith($sValue, '\'') && utils::EndsWith($sValue, '\''))
++		if ($sValue != "'" && utils::StartsWith($sValue, '\'') && utils::EndsWith($sValue, '\''))
+ 		{
+ 			$sValue = substr($sValue, 1, -1);
+ 		}
+@@ -1152,8 +1152,12 @@ class CMDBSource
+ 
+ 		if (strcmp($sItopFieldTypeOptions, $sDbFieldTypeOptions) !== 0)
+ 		{
++			// in MySQL 8, will ignore int and tinyint length
++			$aIgnoreOptions = array("int", "tinyint");
+ 			// case sensitive comp as we need to check case for enum possible values for example
+-			return false;
++			if(!in_array($sDbFieldDataType, $aIgnoreOptions)) {
++				return false;
++			}
+ 		}
+ 
+ 		// remove the default value NULL added by MariadDB

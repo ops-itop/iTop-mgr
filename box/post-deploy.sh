@@ -6,6 +6,7 @@ mv /etc/yum.repos.d/* /tmp
 curl -s http://mirrors.aliyun.com/repo/Centos-7.repo -o /etc/yum.repos.d/CentOS-Base.repo
 curl -s http://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel.repo
 
+# 删除阿里云内网域名
 sed -i '/aliyuncs.com/d' /etc/yum.repos.d/*.repo
 
 # 安装 常用/必要 软件
@@ -34,8 +35,8 @@ systemctl restart sshd
 # 在 CentOS 和 RHEL 上， SELinux 默认为 Enforcing 开启状态。为简化安装，我们建议把 SELinux 设置为 Permissive 或者完全禁用，也就是在加固系统配置前先确保集群的安装、配置没问题。用下列命令把 SELinux 设置为 Permissive 
 sed -i 's/^SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 
-# 安装 MySQL 5.7
-yum install -y https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+# 安装 MySQL 8
+yum install -y https://dev.mysql.com/get/mysql80-community-release-el7-3.noarch.rpm
 yum install -y mysql-community-server mysql-shell mysql-router
 
 # 安装 Nginx 和 PHP
@@ -64,3 +65,32 @@ cp -u /vagrant/tools/* /root
 chmod +x /root/run.sh
 chown -R nginx:nginx $WEBROOT
 rm -fr /var/cache/yum/*
+
+
+# https://stackoverflow.com/questions/60892749/mysql-8-ignoring-integer-lengths
+# The "length" of an integer column doesn't mean anything. A column of int(11) is the same as int(2) or int(40). They are all a fixed-size, 32-bit integer data type. They support the same minimum and maximum value.
+# So it's a good thing that the misleading integer "length" is now deprecated and removed. It has caused confusion for many years.
+# 会导致 toolkit 检查数据模型时报：  found int DEFAULT 0 while expecting INT(11) DEFAULT 0
+# 检查函数在 core/cmdbsource.class.inc.php 文件中 IsSameFieldTypes 函数
+#                if (strcmp($sItopFieldTypeOptions, $sDbFieldTypeOptions) !== 0)
+#                {
+#                        // case sensitive comp as we need to check case for enum possible values for example
+#                        return false;
+#                }
+# 选项不同，iTop 期望 11, MySQL 8 认为 INT(11) 和 int 是一样的，而且存储的时候也直接是 int，没有选项，导致这里检查不能通过。
+# 修复方案：
+#                        $aIgnoreOptions = array('int', 'tinyint');
+#                        if(!in_array($sDbFieldDataType, $aIgnoreOptions)) {
+#                            return false;
+#                        }
+# priv_sync_att_linkset表attribute_qualifier属性 varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT while expecting VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '\'' ，因为 RemoveSurroundingQuotes 函数没有正确处理 `'`
+# 修复方案，如果 $sValue == "'"，那么直接 return
+#        private static function RemoveSurroundingQuotes($sValue)
+#       {
+#              if ($sValue != "'" && utils::StartsWith($sValue, '\'') && utils::EndsWith($sValue, '\''))
+cp /vagrant/patch/* $WEBROOT
+cd $WEBROOT
+patch -p1 --binary -l -N < *.patch
+rm -f *.patch
+
+

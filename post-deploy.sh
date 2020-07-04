@@ -94,7 +94,7 @@ loose-group_replication_group_seeds = "$NODE1:33061,$NODE2:33061,$NODE3:33061"
 #为了避免每次启动自动引导具有相同名称的第二个组,所以设置为OFF。  
 loose-group_replication_bootstrap_group = OFF
 ##关闭单主模式的参数（本例测试时多主模式，所以关闭该项,开启多主模式的参数
-loose-group_replication_single_primary_mode = FALSE # = multi-primary
+loose-group_replication_single_primary_mode = OFF # = multi-primary
 loose-group_replication_enforce_update_everywhere_checks=ON # = multi-primary
 report_host=$MYIP
 report_port=3306
@@ -157,6 +157,8 @@ grep -q "ITOP_URL" $PHP_CONF || echo "env[ITOP_URL]=http://$MYIP/" >> $PHP_CONF
 chown -R nginx:nginx $WEBROOT
 
 # rsync itop dir. base 192.168.10.101
+# data/.maintenance 不应该被同步，否则可能将导致 itop-mgr-2,itop-mgr-3停留在维护状态无法使用。
+# node1 上执行维护任务，进入维护状态，node2, node3 恰好开始同步，node1 维护完成之后删除 data/.maintenance，但是 node2, node3 没有删除（不能使用 rsync --delete 选项，因为每个节点有不同的cache等文件，此选项会删除这些不同的文件）。应将此文件排除在 rsync 同步列表之外。
 if [ "$ID"x == "10101"x ];then
 	cat > /etc/rsyncd.conf <<EOF
 uid = nginx
@@ -167,7 +169,7 @@ address = 192.168.10.101
 	readonly = true
 	path = $WEBROOT
 	comment = itop sync
-	exclude = data/cache-production/* data/transactions/* log/*
+	exclude = data/cache-production/* data/transactions/* log/* data/.maintenance
 EOF
 	systemctl enable rsyncd
 	systemctl restart rsyncd
@@ -183,7 +185,6 @@ sed -i -r 's/^;error_log =.*/error_log = \/tmp\/php_errors.log/g' $PHP_INI
 systemctl restart nginx
 systemctl restart php-fpm
 systemctl restart ntpd
-systemctl restart mysqld
 
 # auto install(only install one instance: 192.168.10.101)
 ITOP_CONF_FILE="$WEBROOT/conf/production/config-itop.php"
