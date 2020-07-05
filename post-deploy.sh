@@ -113,7 +113,10 @@ SET SQL_LOG_BIN=1;
 CHANGE MASTER TO MASTER_USER='repl', MASTER_PASSWORD='repl' FOR CHANNEL 'group_replication_recovery';
 EOF
 
-mysql -uroot -p$MYSQL_ROOT < /tmp/rep.sql
+if [ ! -f $LOCK ];then
+	mysql -uroot -p$MYSQL_ROOT < /tmp/rep.sql
+	touch $LOCK
+fi
 
 # install mgr
 cat > /tmp/mgr.sql <<EOF
@@ -197,15 +200,43 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	chown -R nginx:nginx env-production
 	chown -R nginx:nginx data
 	chown -R nginx:nginx log
+
+	# 由于 auto install 中使用的app root url 是 __ITOP_URL__，auto install 完成之后才替换为 getenv，因此生成的 apc cache 是错误，需要删除
+	rm -fr data/cache-production/apc-emul
 fi
 
 # cron(only one instance)
+CRONLOG=/var/log/itop
 if [ "$ID"x == "10101"x ];then
-	mkdir /var/log/itop
-	chown nginx:nginx /var/log/itop
-	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php /home/wwwroot/default/webservices/cron.php --param_file=/etc/itop-cron.params >>/var/log/itop/cron.log 2>&1" >> /etc/crontab
+	[ ! -d $CRONLOG ] && mkdir $CRONLOG
+	chown nginx:nginx $CRONLOG
+	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php $WEBROOT/webservices/cron.php --param_file=/etc/itop-cron.params >>$CRONLOG/cron.log 2>&1" >> /etc/crontab
 fi
 echo > /etc/itop-cron.params <<EOF
 auth_user=admin
 auth_pwd=admin
 EOF
+
+# 使用 mysqlsh 管理集群
+# MGR集群接管：如果在已经配置好的组复制上创建InnoDB Cluster，并且希望使用它来创建集群，可将adoptFromGR选项传递给dba.createCluster()函数。创建的InnoDB Cluster会匹配复制组是以单主数据库还是多主数据库运行。要采用现有的组复制组，使用MySQL Shell连接到组成员。
+# 在最后一个节点上操作，即等所有节点启动后在操作
+JSDIR="/vagrant/js"
+MYSQLSHLOG=/tmp/mysql.log
+
+if [ "$ID"x == "10103"x ];then
+	echo "Run Get Status"
+	mysqlsh -i --js --file=$JSDIR/status.js > $MYSQLSHLOG 2>&1
+	grep "RuntimeError" $MYSQLSHLOG && r=0 || r=1
+	if [ $r -eq 0 ];then
+		grep "but GR is not active" $MYSQLSHLOG && r=0 || r=1
+		if [ $r -eq 0 ];then
+			echo "Cluster Need Reboot"
+			mysqlsh -i --js --file=$JSDIR/reboot.js
+		else
+			echo "Init Cluster"
+			mysqlsh -i --js --file=$JSDIR/init.js
+		fi
+	else
+		cat $MYSQLSHLOG
+	fi
+fi

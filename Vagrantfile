@@ -9,7 +9,7 @@ BOX='itop-mgr/2.7'
       node.vm.box = BOX
       node.vm.network :private_network, ip: "192.168.10.#{i+100}"
       node.vm.hostname = "itop-mgr-#{i}"
-      node.vm.synced_folder ".", "/vagrant", disabled: true
+      node.vm.synced_folder "files/", "/vagrant", create: true, type: "rsync"
       if Vagrant.has_plugin?("vagrant-vbguest")
         node.vbguest.auto_update = false
       end      
