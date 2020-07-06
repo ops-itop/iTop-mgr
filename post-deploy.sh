@@ -99,7 +99,7 @@ loose-group_replication_enforce_update_everywhere_checks=ON # = multi-primary
 report_host=$MYIP
 report_port=3306
 # 允许加入组复制的客户机来源的ip白名单
-#loose-group_replication_ip_whitelist="192.110.0.0/16,127.0.0.1/8"
+loose-group_replication_ip_whitelist="192.168.10.0/24,127.0.0.1/8"
 EOF
 
 systemctl restart mysqld
