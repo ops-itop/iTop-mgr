@@ -195,6 +195,10 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	cd $WEBROOT/toolkit
 	php auto_install.php
 	sed -i "s/'__ITOP_URL__'/getenv('ITOP_URL')/g" $ITOP_CONF_FILE
+	# 调整一些配置，异步邮件，时区等
+	sed -i "s/'email_asynchronous' =>.*/'email_asynchronous' => true,/g" $ITOP_CONF_FILE
+	sed -i "s/'timezone' =>.*/'timezone' => 'Asia/Shanghai',/g" $ITOP_CONF_FILE
+	sed -i "s/'csv_file_default_charset' =>.*/'csv_file_default_charset' => 'UTF-8',/g" $ITOP_CONF_FILE
 	cd ../
 	chown -R nginx:nginx conf
 	chown -R nginx:nginx env-production
@@ -210,7 +214,7 @@ CRONLOG=/var/log/itop
 if [ "$ID"x == "10101"x ];then
 	[ ! -d $CRONLOG ] && mkdir $CRONLOG
 	chown nginx:nginx $CRONLOG
-	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php $WEBROOT/webservices/cron.php --param_file=/etc/itop-cron.params >>$CRONLOG/cron.log 2>&1" >> /etc/crontab
+	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php $WEBROOT/webservices/cron.php --param_file=/etc/itop-cron.params --verbose=1 >>$CRONLOG/cron.log 2>&1" >> /etc/crontab
 fi
 cat > /etc/itop-cron.params <<EOF
 auth_user=admin
