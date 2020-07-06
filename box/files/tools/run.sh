@@ -8,4 +8,10 @@ function runAll() {
 	done
 }
 
-runAll "$1"
+case $1 in
+"status") runAll "select * from performance_schema.replication_group_members;";;
+"gtid") runAll "SELECT @@GTID_EXECUTED;";;
+"primary") runAll "SHOW STATUS LIKE 'group_replication_primary_member';";;
+"meta") runAll "select instance_name, mysql_server_uuid, addresses from  mysql_innodb_cluster_metadata.instances;";;
+*) runAll "$1";;
+esac

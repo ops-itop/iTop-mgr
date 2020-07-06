@@ -134,8 +134,12 @@ SET GLOBAL group_replication_bootstrap_group=OFF;
 SELECT * FROM performance_schema.replication_group_members;
 EOF
 
-# only run on first node.
-[ "$ID"x == "10101"x ] && mysql -uroot -p$MYSQL_ROOT < /tmp/start.sql
+# only run on first node. 
+# 当使用 vagrant reload 虚拟机的时候，1 号虚机最先关机，这时候 2，3 号如果还在写入，会比 1 号数据新，当 reload 完成之后，如果还默认以1 号为准，用 SQL 语句启动集群，会出现 contains errant transactions that did not originate from the cluster. (RuntimeError) 报错。因此不能默认 1 号 启动，除第一次启动外，应使用 mysql-shell 来重启
+if [ ! -f $LOCK ];then
+	[ "$ID"x == "10101"x ] && mysql -uroot -p$MYSQL_ROOT < /tmp/start.sql
+	touch $LOCK
+fi
 
 # join
 cat > /tmp/join.sql <<EOF
@@ -148,7 +152,11 @@ show global variables like 'group_replication_single%';
 EOF
 
 # run on other two node
-[ "$ID"x == "10101"x ] || mysql -uroot -p$MYSQL_ROOT < /tmp/join.sql
+# 同上，仅第一次启动虚机时执行。之后使用 mysql-shell 来管理
+if [ ! -f $LOCK ];then
+	[ "$ID"x == "10101"x ] || mysql -uroot -p$MYSQL_ROOT < /tmp/join.sql
+	touch $LOCK
+fi
 
 # fix nginx server_name
 sed -i "s/__SERVER_NAME__/$MYIP/g" /etc/nginx/nginx.conf
@@ -195,19 +203,21 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	cd $WEBROOT/toolkit
 	php auto_install.php
 	sed -i "s/'__ITOP_URL__'/getenv('ITOP_URL')/g" $ITOP_CONF_FILE
-	# 调整一些配置，异步邮件，时区等
-	sed -i "s/'email_asynchronous' =>.*/'email_asynchronous' => true,/g" $ITOP_CONF_FILE
-	sed -i "s/'timezone' =>.*/'timezone' => 'Asia/Shanghai',/g" $ITOP_CONF_FILE
-	sed -i "s/'csv_file_default_charset' =>.*/'csv_file_default_charset' => 'UTF-8',/g" $ITOP_CONF_FILE
 	cd ../
 	chown -R nginx:nginx conf
 	chown -R nginx:nginx env-production
 	chown -R nginx:nginx data
 	chown -R nginx:nginx log
-
-	# 由于 auto install 中使用的app root url 是 __ITOP_URL__，auto install 完成之后才替换为 getenv，因此生成的 apc cache 是错误，需要删除
-	rm -fr data/cache-production/apc-emul
 fi
+
+# 由于 auto install 中使用的app root url 是 __ITOP_URL__，auto install 完成之后才替换为 getenv，因此生成的 apc cache 是错误，需要删除
+rm -fr $WEBROOT/data/cache-production/apc-emul
+
+
+# iTop 调整一些配置，异步邮件，时区等
+sed -i "s/'email_asynchronous' =>.*/'email_asynchronous' => true,/g" $ITOP_CONF_FILE
+sed -i "s/'timezone' =>.*/'timezone' => 'Asia\/Shanghai',/g" $ITOP_CONF_FILE
+sed -i "s/'csv_file_default_charset' =>.*/'csv_file_default_charset' => 'UTF-8',/g" $ITOP_CONF_FILE
 
 # cron(only one instance)
 CRONLOG=/var/log/itop
