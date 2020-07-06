@@ -212,7 +212,7 @@ if [ "$ID"x == "10101"x ];then
 	chown nginx:nginx $CRONLOG
 	grep -q "cron.php" /etc/crontab || echo "*/5 * * * * nginx /usr/bin/php $WEBROOT/webservices/cron.php --param_file=/etc/itop-cron.params >>$CRONLOG/cron.log 2>&1" >> /etc/crontab
 fi
-echo > /etc/itop-cron.params <<EOF
+cat > /etc/itop-cron.params <<EOF
 auth_user=admin
 auth_pwd=admin
 EOF
