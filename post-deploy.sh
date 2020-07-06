@@ -12,27 +12,6 @@ WEBROOT="/home/wwwroot/default"
 
 systemctl enable mysqld
 
-# 只在第一次执行时初始化
-if [ ! -f $LOCK ];then
-	rm -fr /var/lib/mysql
-	mysqld --initialize-insecure --user=mysql
-	systemctl start mysqld
-	# (HY000): Can't connect to local MySQL server through socket '/var/lib/mysql/mysql.sock' (2)，重启生成 sock 文件
-	systemctl restart mysqld
-	systemctl status mysqld
-	mysql -uroot -e "show databases;"
-
-	cat > /tmp/init.sql <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT' PASSWORD EXPIRE NEVER;
-ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT';
-create user root@'%' identified WITH mysql_native_password BY '$MYSQL_ROOT';
-grant all privileges on *.* to root@'%' with grant option;
-flush privileges;
-EOF
-	mysql -uroot < /tmp/init.sql
-	touch $LOCK
-fi
-
 echo "my.cnf"
 
 cat > /etc/my.cnf <<EOF
@@ -104,6 +83,16 @@ EOF
 
 systemctl restart mysqld
 
+# 修改root用户密码
+cat > /tmp/init.sql <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT' PASSWORD EXPIRE NEVER;
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_ROOT';
+create user root@'%' identified WITH mysql_native_password BY '$MYSQL_ROOT';
+grant all privileges on *.* to root@'%' with grant option;
+flush privileges;
+EOF
+
+# 设置复制用户
 cat > /tmp/rep.sql <<EOF
 SET SQL_LOG_BIN=0;
 CREATE USER IF NOT EXISTS repl@'%' IDENTIFIED WITH 'mysql_native_password' BY 'repl';
@@ -113,18 +102,11 @@ SET SQL_LOG_BIN=1;
 CHANGE MASTER TO MASTER_USER='repl', MASTER_PASSWORD='repl' FOR CHANNEL 'group_replication_recovery';
 EOF
 
-if [ ! -f $LOCK ];then
-	mysql -uroot -p$MYSQL_ROOT < /tmp/rep.sql
-	touch $LOCK
-fi
-
 # install mgr
 cat > /tmp/mgr.sql <<EOF
 INSTALL PLUGIN group_replication SONAME 'group_replication.so';
 SHOW PLUGINS;
 EOF
-
-mysql -uroot -p$MYSQL_ROOT -e "SHOW PLUGINS" |grep -q "group_replication" || mysql -uroot -p$MYSQL_ROOT < /tmp/mgr.sql
 
 # start mgr
 cat > /tmp/start.sql <<EOF
@@ -133,13 +115,6 @@ START GROUP_REPLICATION;
 SET GLOBAL group_replication_bootstrap_group=OFF;
 SELECT * FROM performance_schema.replication_group_members;
 EOF
-
-# only run on first node. 
-# 当使用 vagrant reload 虚拟机的时候，1 号虚机最先关机，这时候 2，3 号如果还在写入，会比 1 号数据新，当 reload 完成之后，如果还默认以1 号为准，用 SQL 语句启动集群，会出现 contains errant transactions that did not originate from the cluster. (RuntimeError) 报错。因此不能默认 1 号 启动，除第一次启动外，应使用 mysql-shell 来重启
-if [ ! -f $LOCK ];then
-	[ "$ID"x == "10101"x ] && mysql -uroot -p$MYSQL_ROOT < /tmp/start.sql
-	touch $LOCK
-fi
 
 # join
 cat > /tmp/join.sql <<EOF
@@ -151,12 +126,35 @@ SHOW STATUS LIKE 'group_replication_primary_member';
 show global variables like 'group_replication_single%';
 EOF
 
-# run on other two node
-# 同上，仅第一次启动虚机时执行。之后使用 mysql-shell 来管理
+# 只在第一次执行时初始化
 if [ ! -f $LOCK ];then
+	rm -fr /var/lib/mysql
+	mysqld --initialize-insecure --user=mysql
+	systemctl start mysqld
+	# (HY000): Can't connect to local MySQL server through socket '/var/lib/mysql/mysql.sock' (2)，重启生成 sock 文件
+	systemctl restart mysqld
+	systemctl status mysqld
+	mysql -uroot -e "show databases;"
+
+	mysql -uroot < /tmp/init.sql
+	mysql -uroot -p$MYSQL_ROOT < /tmp/rep.sql
+	mysql -uroot -p$MYSQL_ROOT -e "SHOW PLUGINS" |grep -q "group_replication" || mysql -uroot -p$MYSQL_ROOT < /tmp/mgr.sql
+
+	# reset master. 解决 The member contains transactions not present in the group. The member will now exit the group. 报错
+	# 见 https://blog.csdn.net/snowhite91/article/details/83791997
+	# MySQL是新装的没问题，但是每次新装MySQL都要修改密码，如果在修改密码的时候就已经把binlog_format=on配在了/etc/my.cnf中，那么修改密码的记录是存在在binlog日志中的。所以就会提示前文中的日志错误。
+	mysql -uroot -proot -e "RESET MASTER;"
+	# only run on first node. 
+	# 当使用 vagrant reload 虚拟机的时候，1 号虚机最先关机，这时候 2，3 号如果还在写入，会比 1 号数据新，当 reload 完成之后，如果还默认以1 号为准，用 SQL 语句启动集群，会出现 contains errant transactions that did not originate from the cluster. (RuntimeError) 报错。因此不能默认 1 号 启动，除第一次启动外，应使用 mysql-shell 来重启
+	[ "$ID"x == "10101"x ] && mysql -uroot -p$MYSQL_ROOT < /tmp/start.sql
+	# run on other two node
+	# 同上，仅第一次启动虚机时执行。之后使用 mysql-shell 来管理
 	[ "$ID"x == "10101"x ] || mysql -uroot -p$MYSQL_ROOT < /tmp/join.sql
+
 	touch $LOCK
 fi
+
+
 
 # fix nginx server_name
 sed -i "s/__SERVER_NAME__/$MYIP/g" /etc/nginx/nginx.conf
@@ -210,15 +208,17 @@ if [ ! -f $ITOP_CONF_FILE ] && [ "$ID"x == "10101"x ];then
 	chown -R nginx:nginx log
 fi
 
-# 由于 auto install 中使用的app root url 是 __ITOP_URL__，auto install 完成之后才替换为 getenv，因此生成的 apc cache 是错误，需要删除
-rm -fr $WEBROOT/data/cache-production/apc-emul
+# 由于 auto install 中使用的app root url 是 __ITOP_URL__，auto install 完成之后才替换为 getenv，因此生成的 apc cache 是错误，需要删除 cache
+echo "remove apc cache"
+rm -fr $WEBROOT/data/cache-production/
 
 
 # iTop 调整一些配置，异步邮件，时区等
-sed -i "s/'email_asynchronous' =>.*/'email_asynchronous' => true,/g" $ITOP_CONF_FILE
-sed -i "s/'timezone' =>.*/'timezone' => 'Asia\/Shanghai',/g" $ITOP_CONF_FILE
-sed -i "s/'csv_file_default_charset' =>.*/'csv_file_default_charset' => 'UTF-8',/g" $ITOP_CONF_FILE
-
+if [ "$ID"x == "10101"x ];then
+	sed -i "s/'email_asynchronous' =>.*/'email_asynchronous' => true,/g" $ITOP_CONF_FILE
+	sed -i "s/'timezone' =>.*/'timezone' => 'Asia\/Shanghai',/g" $ITOP_CONF_FILE
+	sed -i "s/'csv_file_default_charset' =>.*/'csv_file_default_charset' => 'UTF-8',/g" $ITOP_CONF_FILE
+fi
 # cron(only one instance)
 CRONLOG=/var/log/itop
 if [ "$ID"x == "10101"x ];then
@@ -248,7 +248,19 @@ if [ "$ID"x == "10103"x ];then
 			mysqlsh -i --js --file=$JSDIR/reboot.js
 		else
 			echo "Init Cluster"
-			mysqlsh -i --js --file=$JSDIR/init.js
+			# 3号节点处于 RECOVERING 状态时是 R/O 模式，会报错：WARNING: Error updating recovery credentials for 192.168.10.103:3306: Cannot set Group Replication recovery user to 'mysql_innodb_cluster_10103'. Error executing CHANGE MASTER statement: 192.168.10.103:3306: This operation cannot be performed with a running slave io thread; run STOP SLAVE IO_THREAD FOR CHANNEL 'group_replication_recovery' first.
+			# 因此需要等待 3号 ONLINE 之后在 init
+			for id in  `seq 1 30`;do
+				online=`mysql -uroot -proot -e "SELECT * FROM performance_schema.replication_group_members;" |grep "ONLINE" |wc -l`
+				if [ $online -lt 3 ];then
+					echo "Wait all nodes ONLINE. Try $id times"
+					sleep 1;
+					continue
+				else
+					mysqlsh -i --js --file=$JSDIR/init.js
+					break;
+				fi
+			done
 		fi
 	else
 		cat $MYSQLSHLOG
