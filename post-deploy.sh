@@ -245,7 +245,7 @@ if [ "$ID"x == "10103"x ];then
 		grep "but GR is not active" $MYSQLSHLOG && r=0 || r=1
 		if [ $r -eq 0 ];then
 			echo "Cluster Need Reboot"
-			mysqlsh --js --file=$JSDIR/reboot.js
+			mysqlsh --log-level=debug --js --file=$JSDIR/reboot.js
 		else
 			echo "Init Cluster"
 			# 3号节点处于 RECOVERING 状态时是 R/O 模式，会报错：WARNING: Error updating recovery credentials for 192.168.10.103:3306: Cannot set Group Replication recovery user to 'mysql_innodb_cluster_10103'. Error executing CHANGE MASTER statement: 192.168.10.103:3306: This operation cannot be performed with a running slave io thread; run STOP SLAVE IO_THREAD FOR CHANNEL 'group_replication_recovery' first.
