@@ -1,6 +1,6 @@
 #!/bin/bash
 
-[ $# -lt 3 ] && echo "$0 password url" && exit 1
+[ $# -lt 2 ] && echo "$0 password url" && exit 1
 user=admin
 password=$1
 url=$2
