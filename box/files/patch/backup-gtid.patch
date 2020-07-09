@@ -1,0 +1,15 @@
+diff --git a/setup/backup.class.inc.php b/tmp/backup.class.inc.php
+index a242629..28eb301 100644
+--- a/setup/backup.class.inc.php
++++ b/tmp/backup.class.inc.php
+@@ -327,8 +327,8 @@ EOF;
+ 
+ 			// Note: opt implicitely sets lock-tables... which cancels the benefit of single-transaction!
+ 			//       skip-lock-tables compensates and allows for writes during a backup
+-			$sCommand = "$sMySQLDump --defaults-extra-file=\"$sMySQLDumpCnfFile\" --opt --skip-lock-tables --default-character-set=".$sMysqldumpCharset." --add-drop-database --single-transaction --host=$sHost $sPortOption --user=$sUser $sTlsOptions --result-file=$sTmpFileName $sDBName $sTables 2>&1";
+-			$sCommandDisplay = "$sMySQLDump --defaults-extra-file=\"$sMySQLDumpCnfFile\" --opt --skip-lock-tables --default-character-set=".$sMysqldumpCharset." --add-drop-database --single-transaction --host=$sHost $sPortOption --user=xxxxx $sTlsOptions --result-file=$sTmpFileName $sDBName $sTables";
++			$sCommand = "$sMySQLDump --defaults-extra-file=\"$sMySQLDumpCnfFile\" --set-gtid-purged=OFF --opt --skip-lock-tables --default-character-set=".$sMysqldumpCharset." --add-drop-database --single-transaction --host=$sHost $sPortOption --user=$sUser $sTlsOptions --result-file=$sTmpFileName $sDBName $sTables 2>&1";
++			$sCommandDisplay = "$sMySQLDump --defaults-extra-file=\"$sMySQLDumpCnfFile\" --set-gtid-purged=OFF --opt --skip-lock-tables --default-character-set=".$sMysqldumpCharset." --add-drop-database --single-transaction --host=$sHost $sPortOption --user=xxxxx $sTlsOptions --result-file=$sTmpFileName $sDBName $sTables";
+ 
+ 		// Now run the command for real
+ 		$this->LogInfo("backup: generate data file with command: $sCommandDisplay");
